@@ -1,0 +1,33 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//University Timetable Export//CommandCenter//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:uni-sample-lec-101@university.ac.uk
+SUMMARY:COMP301 Lecture: Kernel Scheduling & Lock-Free Queues
+DESCRIPTION:Weekly core module lecture. Bring lecture notes.
+LOCATION:Engineering Building Room 2.14
+DTSTART:20261116T100000Z
+DTEND:20261116T113000Z
+RRULE:FREQ=WEEKLY;COUNT=6
+END:VEVENT
+BEGIN:VEVENT
+UID:uni-sample-lab-102@university.ac.uk
+SUMMARY:COMP304 Systems Lab: Network Packet Analysis
+DESCRIPTION:Hands-on socket programming and Wireshark lab check-off.
+LOCATION:Computer Science Lab 3.02
+DTSTART:20261118T140000Z
+DTEND:20261118T160000Z
+RRULE:FREQ=WEEKLY;COUNT=6
+END:VEVENT
+BEGIN:VEVENT
+UID:uni-sample-sem-103@university.ac.uk
+SUMMARY:MATH310 Tutorial: Convex Optimization Problem Sheet
+DESCRIPTION:Small-group problem solving seminar.
+LOCATION:Science Block 1.05
+DTSTART:20261119T110000Z
+DTEND:20261119T120000Z
+RRULE:FREQ=WEEKLY;COUNT=6
+END:VEVENT
+END:VCALENDAR

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="espresso">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gabrielius</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-header">
+          <div class="brand-left">
+            <div class="brand-mark">G</div>
+            <div class="brand-text">
+              <div class="brand-title">Gabrielius</div>
+            </div>
+          </div>
+          <button class="collapse-btn" id="btn-collapse-sidebar" title="Minimise / Expand Sidebar">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="9" y1="3" x2="9" y2="21"></line>
+            </svg>
+          </button>
+        </div>
+
+        <ul class="nav-list">
+          <li>
+            <button class="nav-btn active" data-view="overview" title="Briefing">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+                  <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+                  <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+                  <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+                </svg>
+                <span>Briefing</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="news" title="Ground News &amp; UK Wire">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
+                  <path d="M18 14h-8"></path>
+                  <path d="M15 18h-5"></path>
+                  <path d="M10 6h8v4h-8V6Z"></path>
+                </svg>
+                <span>News</span>
+              </span>
+              <span class="nav-badge">LIVE</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="calendar" title="Schedule &amp; Timetable">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Schedule</span>
+              </span>
+              <span class="nav-badge" id="nav-badge-events">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="tasks" title="Tasks">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span>Tasks</span>
+              </span>
+              <span class="nav-badge" id="nav-badge-tasks">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="courses" title="Modules &amp; Deadlines">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                <span>Modules</span>
+              </span>
+              <span class="nav-badge" id="nav-badge-deadlines">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="emails" title="Email Hub">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span>Email</span>
+              </span>
+              <span class="nav-badge" id="nav-badge-emails">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="notes" title="Notes &amp; Journal">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                </svg>
+                <span>Notes</span>
+              </span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="nav-section-label">Shortcuts</div>
+        <ul class="nav-list">
+          <li>
+            <a class="nav-btn" href="https://learn.lboro.ac.uk" target="_blank" rel="noopener noreferrer" title="Loughborough Learn">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+                </svg>
+                <span>Learn</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-btn" href="https://outlook.office.com/mail/" target="_blank" rel="noopener noreferrer" title="Outlook 365">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                <span>Outlook</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-btn" href="https://mail.proton.me/u/0/inbox" target="_blank" rel="noopener noreferrer" title="Proton Mail">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <span>Proton</span>
+              </span>
+            </a>
+          </li>
+          <li>
+            <a class="nav-btn" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener noreferrer" title="Gmail">
+              <span class="nav-btn-left">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <span>Gmail</span>
+              </span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="theme-switcher" title="Switch Theme">
+          <button class="theme-btn active" data-theme-opt="espresso">Espresso</button>
+          <button class="theme-btn" data-theme-opt="editorial">Paper</button>
+          <button class="theme-btn" data-theme-opt="nordic">Nordic</button>
+        </div>
+        <div class="clock-box">
+          <div class="clock-time" id="sidebar-clock">--:--</div>
+          <div class="clock-date" id="sidebar-date">---</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-area">
+      <header class="topbar">
+        <h1 class="topbar-title" id="topbar-title">Briefing</h1>
+        <div class="topbar-actions">
+          <!-- UI Zoom Control -->
+          <div class="zoom-control" title="Adjust Text &amp; UI Scale">
+            <button class="zoom-btn" id="btn-zoom-out" title="Zoom Out">-</button>
+            <span class="zoom-label" id="zoom-level-label" title="Click to reset to 100%">100%</span>
+            <button class="zoom-btn" id="btn-zoom-in" title="Zoom In">+</button>
+          </div>
+
+          <button class="btn" id="btn-global-ics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>iCal</span>
+          </button>
+          <button class="btn" id="btn-global-event">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="12" y1="10" x2="12" y2="16"></line>
+              <line x1="9" y1="13" x2="15" y2="13"></line>
+            </svg>
+            <span>Event</span>
+          </button>
+          <button class="btn btn-primary" id="btn-global-task">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>Task</span>
+          </button>
+        </div>
+      </header>
+
+      <section class="view-container" id="view-root"></section>
+    </main>
+  </div>
+
+  <!-- Universal Modal Container -->
+  <div class="modal-backdrop hidden" id="modal-backdrop">
+    <div class="modal-card" id="modal-card"></div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

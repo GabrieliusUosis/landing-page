@@ -1,0 +1,15 @@
+{
+  "name": "uni-command-center",
+  "version": "1.0.0",
+  "description": "Personal Academic & Productivity Command Center with iCal/ICS Sync, Multi-Provider Email Hub, Course Deadlines, Tasks, and Markdown Notes",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "imapflow": "^1.0.171",
+    "mailparser": "^3.7.2"
+  }
+}
