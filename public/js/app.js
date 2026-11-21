@@ -5,27 +5,17 @@ const State = {
   courses: [],
   events: [],
   feeds: [],
-  emailAccounts: [],
-  recentEmails: [],
   notes: [],
   bookmarks: [],
-  habits: [],
 
   // Live Pulse Data
   weather: null,
   weatherCity: localStorage.getItem('gabrielius_city') || 'loughborough',
   newsItems: [],
-  newsCategory: 'compare', // 'compare' | 'ground' | 'uk' | 'world' | 'tech'
+  newsCategory: 'uk', // 'uk' | 'world' | 'tech'
   newsLoading: false,
   uiZoom: Number(localStorage.getItem('gabrielius_zoom')) || 100,
   sidebarCollapsed: localStorage.getItem('gabrielius_sidebar_collapsed') === '1',
-
-  // Built-in Focus Timer & Web Audio Ambient Sound State
-  timerSeconds: 25 * 60,
-  timerMode: 25,
-  timerRunning: false,
-  timerInterval: null,
-  ambientMode: 'off', // 'off' | 'brown' | 'rain'
 
   // View-specific state
   calendarDate: new Date(2026, 10, 16),
@@ -33,126 +23,10 @@ const State = {
   taskFilterStatus: 'active',
   taskFilterCourse: '',
   courseFilterId: '',
-  selectedEmailId: null,
-  emailAccountFilter: 'all',
-  emailStatusFilter: 'all',
   selectedNoteId: null,
   noteCourseFilter: 'all',
   noteViewMode: 'split'
 };
-
-// Web Audio API Synthesizer for Focus Brown Noise / Soft Rain (zero external audio files needed)
-const AmbientAudio = {
-  ctx: null,
-  sourceNode: null,
-  gainNode: null,
-
-  setMode(mode) {
-    State.ambientMode = mode;
-    this.stop();
-    if (mode === 'off') {
-      renderActiveView();
-      return;
-    }
-
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!this.ctx) this.ctx = new AudioCtx();
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-
-    const bufferSize = 2 * this.ctx.sampleRate;
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-
-    if (mode === 'brown') {
-      let lastOut = 0.0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        output[i] = (lastOut + 0.02 * white) / 1.02;
-        lastOut = output[i];
-        output[i] *= 3.2;
-      }
-    } else {
-      // Soft filtered pink/rain texture
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-      for (let i = 0; i < bufferSize; i++) {
-        const white = Math.random() * 2 - 1;
-        b0 = 0.99886 * b0 + white * 0.0555179;
-        b1 = 0.99332 * b1 + white * 0.0750759;
-        b2 = 0.96900 * b2 + white * 0.1538520;
-        b3 = 0.86650 * b3 + white * 0.3104856;
-        b4 = 0.55000 * b4 + white * 0.5329522;
-        b5 = -0.7616 * b5 - white * 0.0168980;
-        output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-        output[i] *= 0.04;
-        b6 = white * 0.115926;
-      }
-    }
-
-    this.sourceNode = this.ctx.createBufferSource();
-    this.sourceNode.buffer = noiseBuffer;
-    this.sourceNode.loop = true;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = mode === 'brown' ? 420 : 1100;
-
-    this.gainNode = this.ctx.createGain();
-    this.gainNode.gain.value = mode === 'brown' ? 0.18 : 0.12;
-
-    this.sourceNode.connect(filter);
-    filter.connect(this.gainNode);
-    this.gainNode.connect(this.ctx.destination);
-    this.sourceNode.start(0);
-    renderActiveView();
-  },
-
-  stop() {
-    if (this.sourceNode) {
-      try {
-        this.sourceNode.stop();
-        this.sourceNode.disconnect();
-      } catch {}
-      this.sourceNode = null;
-    }
-  }
-};
-
-// Focus Timer Controller
-function toggleFocusTimer() {
-  if (State.timerRunning) {
-    clearInterval(State.timerInterval);
-    State.timerRunning = false;
-  } else {
-    State.timerRunning = true;
-    State.timerInterval = setInterval(() => {
-      if (State.timerSeconds > 0) {
-        State.timerSeconds--;
-        const disp = document.getElementById('focus-timer-digits');
-        if (disp) disp.textContent = formatTimerSeconds(State.timerSeconds);
-      } else {
-        clearInterval(State.timerInterval);
-        State.timerRunning = false;
-        showToast('Focus session completed!');
-        renderActiveView();
-      }
-    }, 1000);
-  }
-  renderActiveView();
-}
-
-function setFocusTimerPreset(minutes) {
-  clearInterval(State.timerInterval);
-  State.timerRunning = false;
-  State.timerMode = minutes;
-  State.timerSeconds = minutes * 60;
-  renderActiveView();
-}
-
-function formatTimerSeconds(totalSec) {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
 
 // SVG Icons (Crisp, zero emojis)
 const Icons = {
@@ -182,7 +56,6 @@ const VIEW_METADATA = {
   calendar: { title: 'Schedule' },
   courses: { title: 'Modules' },
   tasks: { title: 'Tasks' },
-  emails: { title: 'Email' },
   notes: { title: 'Notes' }
 };
 
@@ -229,15 +102,9 @@ async function refreshAllData() {
     State.courses = data.courses || [];
     State.events = data.events || [];
     State.feeds = data.feeds || [];
-    State.emailAccounts = data.emailAccounts || [];
-    State.recentEmails = data.recentEmails || [];
     State.notes = data.notes || [];
     State.bookmarks = data.bookmarks || [];
-    State.habits = data.habits || [];
 
-    if (!State.selectedEmailId && State.recentEmails.length > 0) {
-      State.selectedEmailId = State.recentEmails[0].id;
-    }
     if (!State.selectedNoteId && State.notes.length > 0) {
       State.selectedNoteId = State.notes[0].id;
     }
@@ -263,7 +130,7 @@ async function refreshAllData() {
 async function loadLiveNews(category) {
   State.newsCategory = category;
   State.newsLoading = true;
-  if (State.activeView === 'overview' || State.activeView === 'news') {
+  if (State.activeView === 'news') {
     renderActiveView();
   }
   try {
@@ -273,7 +140,7 @@ async function loadLiveNews(category) {
     showToast(`News feed error: ${err.message}`);
   } finally {
     State.newsLoading = false;
-    if (State.activeView === 'overview' || State.activeView === 'news') {
+    if (State.activeView === 'news') {
       renderActiveView();
     }
   }
@@ -282,7 +149,6 @@ async function loadLiveNews(category) {
 function updateSidebarBadges() {
   const pendingTasks = State.tasks.filter((t) => t.status !== 'done').length;
   const pendingDeadlines = State.assignments.filter((a) => a.status !== 'submitted').length;
-  const unreadEmails = State.recentEmails.filter((m) => m.is_unread === 1).length;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -295,7 +161,6 @@ function updateSidebarBadges() {
 
   document.getElementById('nav-badge-tasks').textContent = pendingTasks;
   document.getElementById('nav-badge-deadlines').textContent = pendingDeadlines;
-  document.getElementById('nav-badge-emails').textContent = unreadEmails;
   document.getElementById('nav-badge-events').textContent = todayEvents;
 }
 
@@ -330,9 +195,6 @@ function renderActiveView() {
     case 'tasks':
       renderTasksView(root);
       break;
-    case 'emails':
-      renderEmailsView(root);
-      break;
     case 'notes':
       renderNotesView(root);
       break;
@@ -342,13 +204,9 @@ function renderActiveView() {
 }
 
 /* ==========================================================================
-   NEWS MEDIA CARD HELPER (GROUND NEWS IMAGES + BIAS BAR VS BBC)
+   NEWS MEDIA CARD HELPER (CLEAN RSS HEADLINES + IMAGES)
    ========================================================================== */
 function renderNewsMediaCard(item, showDesc = false) {
-  const b = item.bias || { left: 32, center: 38, right: 30 };
-  const isGround = item.isGround || item.source === 'Ground News';
-  const groundCompareHref = item.groundUrl || `https://ground.news/interest/uk`;
-
   const thumbHtml = item.image
     ? `<div class="news-thumb-wrap">
          <img src="${Utils.escapeHtml(item.image)}" alt="" class="news-thumb-img" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.innerHTML='<span class=\\'news-thumb-fallback\\'>${Utils.escapeHtml(item.source.slice(0, 6))}</span>'" />
@@ -363,8 +221,7 @@ function renderNewsMediaCard(item, showDesc = false) {
       <div class="news-body">
         <div>
           <div class="news-meta">
-            <span class="news-source ${isGround ? 'source-ground' : ''}">${Utils.escapeHtml(item.source)}</span>
-            ${item.sourceCount ? `<span class="badge" style="font-size:10.5px;">${item.sourceCount} sources</span>` : ''}
+            <span class="news-source">${Utils.escapeHtml(item.source)}</span>
             <span class="news-time">${Utils.timeAgo(item.publishedAt)}</span>
           </div>
           <a href="${Utils.escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
@@ -372,24 +229,13 @@ function renderNewsMediaCard(item, showDesc = false) {
           </a>
           ${showDesc && item.description ? `<div class="news-desc">${Utils.escapeHtml(item.description)}</div>` : ''}
         </div>
-        <div class="bias-bar-wrap">
-          <div class="bias-bar-track" title="Left ${b.left}% / Center ${b.center}% / Right ${b.right}%">
-            <div class="bias-seg-left" style="width:${b.left}%"></div>
-            <div class="bias-seg-center" style="width:${b.center}%"></div>
-            <div class="bias-seg-right" style="width:${b.right}%"></div>
-          </div>
-          <div class="bias-labels">
-            <span>L ${b.left}% · C ${b.center}% · R ${b.right}%</span>
-            <a href="${Utils.escapeHtml(groundCompareHref)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary); text-decoration:none; font-weight:700;">Ground News &rarr;</a>
-          </div>
-        </div>
       </div>
     </div>
   `;
 }
 
 /* ==========================================================================
-   1. DAILY BRIEFING OVERVIEW (PERSONAL LIFE + NEWS + WEATHER + FOCUS + UNI)
+   1. DAILY BRIEFING OVERVIEW (GREETING + WEATHER + TASKS + SCHEDULE + DEADLINES + NOTES + LINKS)
    ========================================================================== */
 function renderOverview(root) {
   const totalTasks = State.tasks.length;
@@ -411,15 +257,14 @@ function renderOverview(root) {
     .slice(0, 5);
 
   const activeAssignments = State.assignments
-    .filter((a) => a.status !== 'submitted')
-    .slice(0, 4);
+    .filter((a) => a.status !== 'submitted');
 
   const pinnedNote = State.notes.find((n) => n.pinned === 1) || State.notes[0];
 
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const activeTaskCount = State.tasks.filter((t) => t.status !== 'done').length;
-  const unreadMailCount = State.recentEmails.filter((m) => m.is_unread === 1).length;
+  const pendingDeadlineCount = activeAssignments.length;
 
   const w = State.weather || {
     cityKey: State.weatherCity,
@@ -434,17 +279,8 @@ function renderOverview(root) {
     clothingNote: 'Bring a hoodie or light jacket'
   };
 
-  // Generate last 5 days for the Habit Tracker Matrix
-  const last5Days = [];
-  for (let i = 4; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const isoDay = d.toISOString().slice(0, 10);
-    const shortLabel = d.toLocaleDateString([], { weekday: 'narrow' });
-    last5Days.push({ isoDay, shortLabel, isToday: i === 0 });
-  }
-
   root.innerHTML = `
-    <!-- Top Personal Briefing Strip: Greeting + Weather + Focus Studio -->
+    <!-- Top Personal Briefing Strip: Greeting + Weather -->
     <div class="life-briefing-grid">
       <!-- 1. Editorial Greeting Card -->
       <div class="briefing-card">
@@ -464,8 +300,8 @@ function renderOverview(root) {
             <span class="mini-stat-label">events</span>
           </div>
           <div class="mini-stat">
-            <span class="mini-stat-num">${unreadMailCount}</span>
-            <span class="mini-stat-label">unread</span>
+            <span class="mini-stat-num">${pendingDeadlineCount}</span>
+            <span class="mini-stat-label">deadlines</span>
           </div>
         </div>
       </div>
@@ -491,128 +327,9 @@ function renderOverview(root) {
           <span>Wind: ${w.windKmh} km/h</span>
         </div>
       </div>
-
-      <!-- 3. Focus Timer & Ambient Audio Studio -->
-      <div class="briefing-card">
-        <div class="timer-display-row">
-          <div>
-            <div style="font-size:11px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Focus Timer</div>
-            <div class="timer-digits" id="focus-timer-digits">${formatTimerSeconds(State.timerSeconds)}</div>
-          </div>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <div class="segmented-control">
-              <button class="seg-btn ${State.timerMode === 25 ? 'active' : ''}" onclick="setFocusTimerPreset(25)">25m</button>
-              <button class="seg-btn ${State.timerMode === 50 ? 'active' : ''}" onclick="setFocusTimerPreset(50)">50m</button>
-              <button class="seg-btn ${State.timerMode === 5 ? 'active' : ''}" onclick="setFocusTimerPreset(5)">5m</button>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="toggleFocusTimer()">
-              ${State.timerRunning ? 'Pause' : 'Start'}
-            </button>
-          </div>
-        </div>
-        <div class="ambient-row">
-          <span style="font-size:12px; color:var(--text-secondary); font-weight:600;">Audio</span>
-          <div class="segmented-control">
-            <button class="seg-btn ${State.ambientMode === 'off' ? 'active' : ''}" onclick="AmbientAudio.setMode('off')">Off</button>
-            <button class="seg-btn ${State.ambientMode === 'brown' ? 'active' : ''}" onclick="AmbientAudio.setMode('brown')">Brown Noise</button>
-            <button class="seg-btn ${State.ambientMode === 'rain' ? 'active' : ''}" onclick="AmbientAudio.setMode('rain')">Rain</button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <div class="bento-grid">
-      <!-- Live Ground News vs BBC Wire (Col 7) -->
-      <div class="panel col-7">
-        <div class="panel-header">
-          <div class="panel-title-wrap">
-            ${Icons.globe}
-            <span class="panel-title">News</span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <div class="segmented-control">
-              <button class="seg-btn ${State.newsCategory === 'compare' ? 'active' : ''}" onclick="loadLiveNews('compare')">Ground vs BBC</button>
-              <button class="seg-btn ${State.newsCategory === 'ground' ? 'active' : ''}" onclick="loadLiveNews('ground')">Ground News</button>
-              <button class="seg-btn ${State.newsCategory === 'uk' ? 'active' : ''}" onclick="loadLiveNews('uk')">UK</button>
-              <button class="seg-btn ${State.newsCategory === 'world' ? 'active' : ''}" onclick="loadLiveNews('world')">World</button>
-              <button class="seg-btn ${State.newsCategory === 'tech' ? 'active' : ''}" onclick="loadLiveNews('tech')">Tech</button>
-            </div>
-            <button class="btn btn-sm" onclick="switchView('news')">All</button>
-          </div>
-        </div>
-        <div class="panel-body">
-          <div class="item-list">
-            ${State.newsLoading && State.newsItems.length === 0
-              ? `<div class="empty-state">Loading Ground News &amp; BBC feeds...</div>`
-              : State.newsItems.length === 0
-              ? `<div class="empty-state">No stories loaded.</div>`
-              : State.newsItems.slice(0, 5).map((item) => renderNewsMediaCard(item, false)).join('')
-            }
-          </div>
-        </div>
-      </div>
-
-      <!-- Daily Habits & Deadlines (Col 5) -->
-      <div class="panel col-5">
-        <div class="panel-header">
-          <div class="panel-title-wrap">
-            ${Icons.activity}
-            <span class="panel-title">Habits</span>
-          </div>
-          <button class="btn btn-sm" onclick="openHabitModal()">+ Habit</button>
-        </div>
-        <div class="panel-body">
-          <div class="item-list">
-            ${State.habits.map((h) => {
-              const streakCount = h.completed_dates.length;
-              return `
-                <div class="habit-row">
-                  <div style="min-width:0; flex:1;">
-                    <div style="font-size:14px; font-weight:600; color:var(--text-primary);">${Utils.escapeHtml(h.name)}</div>
-                    <div style="font-size:11.5px; color:var(--text-muted); font-family:var(--font-mono);">${streakCount}d</div>
-                  </div>
-                  <div class="habit-days">
-                    ${last5Days.map((d) => {
-                      const isDone = h.completed_dates.includes(d.isoDay);
-                      return `
-                        <button class="habit-dot ${isDone ? 'done' : ''}" onclick="toggleHabitDate(${h.id}, '${d.isoDay}')" title="${d.isoDay}">
-                          ${d.shortLabel}
-                        </button>
-                      `;
-                    }).join('')}
-                    <button class="icon-btn" onclick="deleteHabitItem(${h.id})" title="Delete">${Icons.trash}</button>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-
-          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-hairline);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span style="font-size:12.5px; font-weight:700; color:var(--text-secondary);">Deadlines</span>
-              <button class="btn btn-sm" onclick="switchView('courses')">Modules</button>
-            </div>
-            <div class="item-list">
-              ${activeAssignments.map((a) => {
-                const cd = Utils.relativeCountdown(a.due_date);
-                return `
-                  <div class="task-row">
-                    <div class="task-left">
-                      ${a.course_code ? `<span class="badge" style="background:${a.course_color}22; color:${a.course_color};">${Utils.escapeHtml(a.course_code)}</span>` : ''}
-                      <div style="min-width:0;">
-                        <div class="task-title">${Utils.escapeHtml(a.title)}</div>
-                        <div style="font-size:11.5px; color:var(--text-muted);">${Utils.formatDateTime(a.due_date)}</div>
-                      </div>
-                    </div>
-                    <span class="badge ${cd.urgent ? 'badge-critical' : 'badge-medium'}">${cd.text}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Tasks (Col 7) -->
       <div class="panel col-7">
         <div class="panel-header">
@@ -677,6 +394,42 @@ function renderOverview(root) {
         </div>
       </div>
 
+      <!-- Coursework Deadlines (Col 6) -->
+      <div class="panel col-6">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            ${Icons.clock}
+            <span class="panel-title">Coursework Deadlines</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-sm" onclick="openAssignmentModal()">+ Deadline</button>
+            <button class="btn btn-sm" onclick="switchView('courses')">Modules</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="item-list">
+            ${activeAssignments.length === 0
+              ? `<div class="empty-state">No pending coursework deadlines.</div>`
+              : activeAssignments.map((a) => {
+                const cd = Utils.relativeCountdown(a.due_date);
+                return `
+                  <div class="task-row">
+                    <div class="task-left">
+                      ${a.course_code ? `<span class="badge" style="background:${a.course_color}22; color:${a.course_color};">${Utils.escapeHtml(a.course_code)}</span>` : ''}
+                      <div style="min-width:0;">
+                        <div class="task-title">${Utils.escapeHtml(a.title)}</div>
+                        <div style="font-size:11.5px; color:var(--text-muted);">${Utils.formatDateTime(a.due_date)}</div>
+                      </div>
+                    </div>
+                    <span class="badge ${cd.urgent ? 'badge-critical' : 'badge-medium'}">${cd.text}</span>
+                  </div>
+                `;
+              }).join('')
+            }
+          </div>
+        </div>
+      </div>
+
       <!-- Quick Scratchpad (Col 6) -->
       <div class="panel col-6">
         <div class="panel-header">
@@ -694,12 +447,12 @@ function renderOverview(root) {
         </div>
       </div>
 
-      <!-- Quick Links (Col 6) -->
-      <div class="panel col-6">
+      <!-- Quick Links (Col 12) -->
+      <div class="panel col-12">
         <div class="panel-header">
           <div class="panel-title-wrap">
             ${Icons.bookmark}
-            <span class="panel-title">Links</span>
+            <span class="panel-title">Quick Links</span>
           </div>
           <button class="btn btn-sm" onclick="openBookmarkModal()">+ Link</button>
         </div>
@@ -768,15 +521,13 @@ function renderOverview(root) {
 }
 
 /* ==========================================================================
-   1B. DEDICATED NEWS WIRE VIEW (GROUND NEWS VS BBC + BIAS BARS + IMAGES)
+   1B. DEDICATED NEWS WIRE VIEW (BBC / SKY / GUARDIAN RSS)
    ========================================================================== */
 function renderNewsDeskView(root) {
   root.innerHTML = `
     <div class="calendar-toolbar">
       <div class="segmented-control">
-        <button class="seg-btn ${State.newsCategory === 'compare' ? 'active' : ''}" onclick="loadLiveNews('compare')">Ground vs BBC</button>
-        <button class="seg-btn ${State.newsCategory === 'ground' ? 'active' : ''}" onclick="loadLiveNews('ground')">Ground News</button>
-        <button class="seg-btn ${State.newsCategory === 'uk' ? 'active' : ''}" onclick="loadLiveNews('uk')">UK (BBC &amp; Guardian)</button>
+        <button class="seg-btn ${State.newsCategory === 'uk' ? 'active' : ''}" onclick="loadLiveNews('uk')">UK</button>
         <button class="seg-btn ${State.newsCategory === 'world' ? 'active' : ''}" onclick="loadLiveNews('world')">World</button>
         <button class="seg-btn ${State.newsCategory === 'tech' ? 'active' : ''}" onclick="loadLiveNews('tech')">Tech</button>
       </div>
@@ -796,61 +547,6 @@ function renderNewsDeskView(root) {
       }
     </div>
   `;
-}
-
-async function toggleHabitDate(habitId, dateStr) {
-  await API.toggleHabit(habitId, dateStr);
-  const habits = await API.getHabits();
-  State.habits = habits;
-  renderActiveView();
-}
-
-async function deleteHabitItem(id) {
-  await API.deleteHabit(id);
-  State.habits = await API.getHabits();
-  renderActiveView();
-}
-
-function openHabitModal() {
-  openModal(`
-    <div class="modal-header">
-      <span class="modal-title">Add Daily Life Habit</span>
-      <button class="icon-btn" onclick="closeModal()">X</button>
-    </div>
-    <form id="form-create-habit">
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Habit / Routine Name</label>
-          <input type="text" class="input" id="hb-name" placeholder="e.g. Gym Session, Read 20 Pages, Guitar, No Sugar" required />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Life Area</label>
-          <select class="select" id="hb-cat">
-            <option value="Fitness">Fitness &amp; Health</option>
-            <option value="Build">Coding &amp; Projects</option>
-            <option value="Mind">Reading &amp; Mind</option>
-            <option value="Life">Daily Routine</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add Habit</button>
-      </div>
-    </form>
-  `);
-
-  document.getElementById('form-create-habit').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await API.createHabit({
-      name: document.getElementById('hb-name').value,
-      category: document.getElementById('hb-cat').value
-    });
-    closeModal();
-    State.habits = await API.getHabits();
-    renderActiveView();
-    showToast('Habit added to tracker');
-  });
 }
 
 function renderTaskRowHtml(t) {
@@ -901,11 +597,6 @@ async function deleteTaskItem(id) {
 async function deleteBookmarkItem(id) {
   await API.deleteBookmark(id);
   await refreshAllData();
-}
-
-function openEmailInHub(emailId) {
-  State.selectedEmailId = emailId;
-  switchView('emails');
 }
 
 /* ==========================================================================
@@ -1368,159 +1059,7 @@ function setTaskCourseFilter(courseId) {
 }
 
 /* ==========================================================================
-   5. MULTI-PROVIDER EMAIL HUB (Outlook 365, Gmail, Proton Mail)
-   ========================================================================== */
-function renderEmailsView(root) {
-  const filteredMessages = State.recentEmails.filter((m) => {
-    if (State.emailAccountFilter !== 'all' && String(m.account_id) !== String(State.emailAccountFilter)) {
-      return false;
-    }
-    if (State.emailStatusFilter === 'unread' && !m.is_unread) return false;
-    if (State.emailStatusFilter === 'flagged' && !m.is_flagged) return false;
-    return true;
-  });
-
-  const activeMessage =
-    filteredMessages.find((m) => m.id === State.selectedEmailId) ||
-    filteredMessages[0] ||
-    null;
-
-  root.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-      <div class="segmented-control">
-        <button class="seg-btn ${State.emailAccountFilter === 'all' ? 'active' : ''}" onclick="setEmailAccountFilter('all')">All Inboxes</button>
-        ${State.emailAccounts.map((acc) => `
-          <button class="seg-btn ${String(State.emailAccountFilter) === String(acc.id) ? 'active' : ''}" onclick="setEmailAccountFilter('${acc.id}')">
-            <span>${Utils.escapeHtml(acc.label)}</span>
-          </button>
-        `).join('')}
-      </div>
-
-      <div style="display:flex; gap:8px; align-items:center;">
-        <div class="segmented-control">
-          <button class="seg-btn ${State.emailStatusFilter === 'all' ? 'active' : ''}" onclick="setEmailStatusFilter('all')">All</button>
-          <button class="seg-btn ${State.emailStatusFilter === 'unread' ? 'active' : ''}" onclick="setEmailStatusFilter('unread')">Unread</button>
-          <button class="seg-btn ${State.emailStatusFilter === 'flagged' ? 'active' : ''}" onclick="setEmailStatusFilter('flagged')">Starred</button>
-        </div>
-        <button class="btn btn-sm" onclick="syncAllConfiguredEmails()">${Icons.sync} <span>Sync IMAP</span></button>
-        <button class="btn btn-sm" onclick="openEmailAccountsModal()">${Icons.settings} <span>Accounts</span></button>
-      </div>
-    </div>
-
-    <div class="split-pane">
-      <div class="panel">
-        <div class="pane-scroll">
-          ${filteredMessages.length === 0
-            ? `<div class="empty-state">No messages match this filter.</div>`
-            : filteredMessages.map((m) => `
-              <div class="email-list-item ${activeMessage && activeMessage.id === m.id ? 'active' : ''} ${m.is_unread ? 'unread' : ''}" onclick="selectEmailMessage(${m.id})">
-                <div class="email-sender-row">
-                  <span style="font-weight:600; color:var(--text-primary);">${Utils.escapeHtml(m.sender_name)}</span>
-                  <span style="font-family:var(--font-mono); font-size:11px;">${Utils.formatShortDate(m.received_at)}</span>
-                </div>
-                <div class="email-subject">${Utils.escapeHtml(m.subject)}</div>
-                <div class="email-snippet">${Utils.escapeHtml(m.snippet)}</div>
-                <div style="display:flex; gap:6px; margin-top:6px; align-items:center;">
-                  <span class="badge badge-low" style="font-size:10px; padding:1px 6px; text-transform:uppercase;">${Utils.escapeHtml(m.provider)}</span>
-                  <span class="badge badge-medium" style="font-size:10px; padding:1px 6px;">${Utils.escapeHtml(m.category)}</span>
-                </div>
-              </div>
-            `).join('')
-          }
-        </div>
-      </div>
-
-      <div class="panel">
-        ${!activeMessage
-          ? `<div class="empty-state">Select a message from the list to read its contents.</div>`
-          : `
-            <div class="panel-header">
-              <div>
-                <div style="font-family:var(--font-serif); font-size:18px; font-weight:600; color:var(--text-primary);">${Utils.escapeHtml(activeMessage.subject)}</div>
-                <div style="font-size:12px; color:var(--text-secondary); margin-top:3px;">
-                  From: <strong>${Utils.escapeHtml(activeMessage.sender_name)}</strong> &lt;${Utils.escapeHtml(activeMessage.sender_address)}&gt; · ${Utils.escapeHtml(activeMessage.account_label)}
-                </div>
-              </div>
-              <div style="display:flex; gap:6px;">
-                <button class="btn btn-sm" onclick="convertEmailToTask(${activeMessage.id})">+ Create Task</button>
-                <button class="btn btn-sm" onclick="toggleEmailRead(${activeMessage.id}, ${activeMessage.is_unread})">
-                  ${activeMessage.is_unread ? 'Mark Read' : 'Mark Unread'}
-                </button>
-                ${activeMessage.webmail_url ? `<a href="${Utils.escapeHtml(activeMessage.webmail_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">Open Webmail ${Icons.external}</a>` : ''}
-              </div>
-            </div>
-            <div class="panel-body pane-scroll">
-              <div style="white-space:pre-wrap; font-size:13.5px; line-height:1.65; color:var(--text-primary); background:var(--bg-subtle); padding:18px; border-radius:var(--radius-sm); border:1px solid var(--border-hairline);">${Utils.escapeHtml(activeMessage.body_text || activeMessage.snippet)}</div>
-            </div>
-          `
-        }
-      </div>
-    </div>
-  `;
-}
-
-function setEmailAccountFilter(accId) {
-  State.emailAccountFilter = accId;
-  renderActiveView();
-}
-
-function setEmailStatusFilter(filter) {
-  State.emailStatusFilter = filter;
-  renderActiveView();
-}
-
-async function selectEmailMessage(id) {
-  State.selectedEmailId = id;
-  const msg = State.recentEmails.find((m) => m.id === id);
-  if (msg && msg.is_unread) {
-    await API.updateEmail(id, { is_unread: 0 });
-    msg.is_unread = 0;
-    updateSidebarBadges();
-  }
-  renderActiveView();
-}
-
-async function toggleEmailRead(id, currentUnread) {
-  await API.updateEmail(id, { is_unread: currentUnread ? 0 : 1 });
-  await refreshAllData();
-}
-
-async function convertEmailToTask(id) {
-  const msg = State.recentEmails.find((m) => m.id === id);
-  if (!msg) return;
-  await API.createTask({
-    title: `Follow up: ${msg.subject}`,
-    description: `From ${msg.sender_name} (${msg.sender_address})`,
-    priority: 'high',
-    is_top_priority: 1
-  });
-  await refreshAllData();
-  showToast('Created task from email');
-}
-
-async function syncAllConfiguredEmails() {
-  showToast('Checking configured IMAP / Proton Bridge accounts...');
-  let anySynced = false;
-  for (const acc of State.emailAccounts) {
-    if (acc.has_password) {
-      try {
-        const res = await API.syncEmailAccount(acc.id);
-        showToast(`Synced ${res.syncedCount} messages from ${acc.label}`);
-        anySynced = true;
-      } catch (err) {
-        showToast(`${acc.label}: ${err.message}`);
-      }
-    }
-  }
-  if (!anySynced) {
-    openEmailAccountsModal();
-  } else {
-    await refreshAllData();
-  }
-}
-
-/* ==========================================================================
-   6. JOURNAL & MODULE NOTES WORKSPACE
+   5. JOURNAL & MODULE NOTES WORKSPACE
    ========================================================================== */
 function renderNotesView(root) {
   const filteredNotes = State.notes.filter((n) => {
@@ -2073,84 +1612,6 @@ function openAssignmentModal() {
     await refreshAllData();
     showToast('Deadline added');
   });
-}
-
-function openEmailAccountsModal() {
-  openModal(`
-    <div class="modal-header">
-      <span class="modal-title">Email Accounts (Outlook 365 · Gmail · Proton Mail)</span>
-      <button class="icon-btn" onclick="closeModal()">X</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:12px; color:var(--text-secondary); background:var(--bg-subtle); padding:10px 12px; border-radius:8px; border:1px solid var(--border-hairline); line-height:1.5;">
-        <strong>Connection Guide:</strong><br/>
-        • <strong>Proton Mail:</strong> Run <em>Proton Mail Bridge</em> locally (<code>127.0.0.1:1143</code>) and paste your Bridge password below, or use the sidebar Webmail shortcut.<br/>
-        • <strong>Gmail:</strong> Use a Google <em>App Password</em> (<code>imap.gmail.com:993</code>).<br/>
-        • <strong>Outlook 365:</strong> Use <code>outlook.office365.com:993</code> or launch Outlook Webmail directly.
-      </div>
-
-      <div class="item-list">
-        ${State.emailAccounts.map((acc) => `
-          <div class="panel" style="background:var(--bg-subtle); padding:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <div>
-                <strong style="font-size:13px;">${Utils.escapeHtml(acc.label)}</strong>
-                <span class="badge badge-low" style="margin-left:6px; text-transform:uppercase;">${Utils.escapeHtml(acc.provider)}</span>
-              </div>
-              <button class="btn btn-sm" onclick="syncSingleAccount(${acc.id})">${Icons.sync} Test &amp; Sync</button>
-            </div>
-            <div class="form-row" style="margin-bottom:8px;">
-              <input type="text" class="input" id="em-addr-${acc.id}" value="${Utils.escapeHtml(acc.email_address)}" placeholder="Email Address" />
-              <input type="password" class="input" id="em-pass-${acc.id}" placeholder="${acc.has_password ? '•••••••• (Saved)' : 'App / Bridge Password'}" />
-            </div>
-            <div class="form-row">
-              <input type="text" class="input" id="em-host-${acc.id}" value="${Utils.escapeHtml(acc.imap_host)}" placeholder="IMAP Host" />
-              <div style="display:flex; gap:6px;">
-                <input type="number" class="input" id="em-port-${acc.id}" value="${acc.imap_port}" style="width:90px;" />
-                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="saveEmailAccountConfig(${acc.id})">Save</button>
-              </div>
-            </div>
-            ${acc.last_error ? `<div style="color:#f87171; font-size:11px; margin-top:6px;">Error: ${Utils.escapeHtml(acc.last_error)}</div>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="closeModal()">Close</button>
-    </div>
-  `);
-}
-
-async function saveEmailAccountConfig(id) {
-  const email_address = document.getElementById(`em-addr-${id}`).value;
-  const app_password = document.getElementById(`em-pass-${id}`).value;
-  const imap_host = document.getElementById(`em-host-${id}`).value;
-  const imap_port = document.getElementById(`em-port-${id}`).value;
-
-  await API.updateEmailAccount(id, {
-    email_address,
-    username: email_address,
-    app_password,
-    imap_host,
-    imap_port: Number(imap_port)
-  });
-  await refreshAllData();
-  openEmailAccountsModal();
-  showToast('Email settings saved');
-}
-
-async function syncSingleAccount(id) {
-  try {
-    showToast('Connecting to IMAP server...');
-    const res = await API.syncEmailAccount(id);
-    await refreshAllData();
-    openEmailAccountsModal();
-    showToast(`Synced ${res.syncedCount} messages`);
-  } catch (err) {
-    await refreshAllData();
-    openEmailAccountsModal();
-    showToast(err.message);
-  }
 }
 
 function openBookmarkModal() {

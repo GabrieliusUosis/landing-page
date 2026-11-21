@@ -15,27 +15,12 @@ const API = {
     return this.request('/api/overview');
   },
 
-  // Live Pulse: News, Weather & Daily Habits
-  getNews(category = 'breaking') {
+  // Live Pulse: News & Weather
+  getNews(category = 'uk') {
     return this.request(`/api/pulse/news?category=${encodeURIComponent(category)}`);
   },
   getWeather(city = 'loughborough') {
     return this.request(`/api/pulse/weather?city=${encodeURIComponent(city)}`);
-  },
-  getHabits() {
-    return this.request('/api/pulse/habits');
-  },
-  createHabit(payload) {
-    return this.request('/api/pulse/habits', { method: 'POST', body: JSON.stringify(payload) });
-  },
-  toggleHabit(id, dateStr) {
-    return this.request(`/api/pulse/habits/${id}/toggle`, {
-      method: 'POST',
-      body: JSON.stringify({ date: dateStr })
-    });
-  },
-  deleteHabit(id) {
-    return this.request(`/api/pulse/habits/${id}`, { method: 'DELETE' });
   },
 
   // Tasks
@@ -120,33 +105,6 @@ const API = {
   },
   deleteNote(id) {
     return this.request(`/api/notes/${id}`, { method: 'DELETE' });
-  },
-
-  // Emails
-  getEmailAccounts() {
-    return this.request('/api/emails/accounts');
-  },
-  createEmailAccount(payload) {
-    return this.request('/api/emails/accounts', { method: 'POST', body: JSON.stringify(payload) });
-  },
-  updateEmailAccount(id, payload) {
-    return this.request(`/api/emails/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-  },
-  deleteEmailAccount(id) {
-    return this.request(`/api/emails/accounts/${id}`, { method: 'DELETE' });
-  },
-  syncEmailAccount(id) {
-    return this.request(`/api/emails/accounts/${id}/sync`, { method: 'POST' });
-  },
-  getEmails(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return this.request(`/api/emails/messages${qs ? '?' + qs : ''}`);
-  },
-  updateEmail(id, payload) {
-    return this.request(`/api/emails/messages/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-  },
-  deleteEmail(id) {
-    return this.request(`/api/emails/messages/${id}`, { method: 'DELETE' });
   },
 
   // Bookmarks

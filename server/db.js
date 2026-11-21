@@ -94,40 +94,6 @@ function initializeDatabase() {
       FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE SET NULL
     );
 
-    CREATE TABLE IF NOT EXISTS email_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      label TEXT NOT NULL,
-      provider TEXT NOT NULL,
-      email_address TEXT NOT NULL,
-      imap_host TEXT DEFAULT '',
-      imap_port INTEGER DEFAULT 993,
-      imap_tls INTEGER DEFAULT 1,
-      username TEXT DEFAULT '',
-      app_password TEXT DEFAULT '',
-      webmail_url TEXT DEFAULT '',
-      last_synced_at TEXT,
-      status TEXT DEFAULT 'unconfigured',
-      last_error TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS email_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      account_id INTEGER NOT NULL,
-      message_uid TEXT NOT NULL,
-      subject TEXT NOT NULL,
-      sender_name TEXT DEFAULT '',
-      sender_address TEXT NOT NULL,
-      received_at TEXT NOT NULL,
-      snippet TEXT DEFAULT '',
-      body_text TEXT DEFAULT '',
-      is_unread INTEGER DEFAULT 1,
-      is_flagged INTEGER DEFAULT 0,
-      category TEXT DEFAULT 'Primary',
-      FOREIGN KEY (account_id) REFERENCES email_accounts(id) ON DELETE CASCADE,
-      UNIQUE(account_id, message_uid)
-    );
-
     CREATE TABLE IF NOT EXISTS bookmarks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -136,33 +102,9 @@ function initializeDatabase() {
       shortcut_key TEXT DEFAULT '',
       sort_order INTEGER DEFAULT 0
     );
-
-    CREATE TABLE IF NOT EXISTS habits (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      category TEXT DEFAULT 'Life',
-      completed_dates TEXT DEFAULT '[]',
-      created_at TEXT DEFAULT (datetime('now'))
-    );
   `);
 
   seedInitialDataIfNeeded();
-  seedHabitsIfNeeded();
-}
-
-function seedHabitsIfNeeded() {
-  const count = db.prepare('SELECT COUNT(*) as count FROM habits').get().count;
-  if (count > 0) return;
-
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
-
-  const insertHabit = db.prepare('INSERT INTO habits (name, category, completed_dates) VALUES (?, ?, ?)');
-  insertHabit.run('Gym / Physical Training', 'Fitness', JSON.stringify([twoDaysAgo, yesterday]));
-  insertHabit.run('Personal Coding / Side Project', 'Build', JSON.stringify([twoDaysAgo, yesterday, today]));
-  insertHabit.run('Uni Deep Work Block (90m)', 'Study', JSON.stringify([yesterday]));
-  insertHabit.run('8h Sleep & Hydration', 'Health', JSON.stringify([twoDaysAgo, yesterday, today]));
 }
 
 function seedInitialDataIfNeeded() {
@@ -524,92 +466,6 @@ function seedInitialDataIfNeeded() {
     'COC118 Human-Computer Interaction — CW Project Notes',
     `# COC118: Human-Computer Interaction (Dr Sara Saravi)\n\n## Assessment\n- **Deliverable:** \`26COC118_CW_Project_26/27\`\n- **Due:** Wednesday, 13 January 2027 at 11:00\n\n## Sessions\n- **Lecture:** Monday 16:00–18:00 in \`DLC003 (DigiLab Central)\`\n- **Lab (S1_Labgrp2):** Friday 16:00–18:00`,
     0
-  );
-
-  // Seed default email accounts
-  const insertEmailAccount = db.prepare(
-    'INSERT INTO email_accounts (label, provider, email_address, imap_host, imap_port, imap_tls, username, webmail_url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  );
-  const accOutlook = insertEmailAccount.run(
-    'Loughborough Outlook 365',
-    'outlook',
-    'g.uosis@student.lboro.ac.uk',
-    'outlook.office365.com',
-    993,
-    1,
-    'g.uosis@student.lboro.ac.uk',
-    'https://outlook.office.com/mail/',
-    'demo_ready'
-  ).lastInsertRowid;
-
-  const accGmail = insertEmailAccount.run(
-    'Google Workspace / Gmail',
-    'gmail',
-    'personal@gmail.com',
-    'imap.gmail.com',
-    993,
-    1,
-    'personal@gmail.com',
-    'https://mail.google.com/mail/u/0/#inbox',
-    'demo_ready'
-  ).lastInsertRowid;
-
-  const accProton = insertEmailAccount.run(
-    'Proton Mail (Bridge / Web)',
-    'proton',
-    'vault@proton.me',
-    '127.0.0.1',
-    1143,
-    0,
-    'vault@proton.me',
-    'https://mail.proton.me/u/0/inbox',
-    'demo_ready'
-  ).lastInsertRowid;
-
-  const insertMsg = db.prepare(
-    'INSERT INTO email_messages (account_id, message_uid, subject, sender_name, sender_address, received_at, snippet, body_text, is_unread, is_flagged, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  );
-
-  insertMsg.run(
-    accOutlook,
-    'lboro-learn-1',
-    '[26COC118] Coursework Project Specification & Lab Group 2 Details',
-    'Dr Sara Saravi (Loughborough Learn)',
-    'noreply-learn@lboro.ac.uk',
-    new Date(2026, 10, 15, 9, 30).toISOString(),
-    'Reminder: 26COC118_CW_Project_26/27 submission point is open on Learn (due Wednesday 13 January 2027, 11:00).',
-    `Module: 26COC118 - Human-Computer Interaction\nLecturer: Dr Sara Saravi\n\nLectures take place Mondays 16:00-18:00 in DLC003 (DigiLab Central).\nLab Group 2 (S1_Labgrp2) runs Fridays 16:00-18:00.\n\nCoursework Deliverable: 26COC118_CW_Project_26/27\nDeadline: Wednesday, 13 January 2027 at 11:00 AM.`,
-    1,
-    1,
-    'Academic'
-  );
-
-  insertMsg.run(
-    accOutlook,
-    'lboro-project-2',
-    '[26COZ250META] January Deliverable Submission Point & Weekly Supervisor Meetings',
-    'Part C Project Coordinator',
-    'sci-projects@lboro.ac.uk',
-    new Date(2026, 10, 14, 14, 15).toISOString(),
-    'The January Deliverable Submission Point 26/27 closes on Wednesday 13 January 2027 at 11:00.',
-    `Module: 26COZ250META - All Part C and Part D Projects\n\nPlease ensure you attend your weekly Friday 11:30 supervisor meeting and upload your January Deliverable prior to 11:00 on Wednesday, 13 January 2027.`,
-    1,
-    1,
-    'Academic'
-  );
-
-  insertMsg.run(
-    accProton,
-    'proton-bridge-1',
-    'Proton Mail Bridge Local IMAP Setup Instructions',
-    'Proton Mail System',
-    'no-reply@proton.me',
-    new Date(2026, 10, 14, 18, 0).toISOString(),
-    'Connect Proton Mail Bridge on 127.0.0.1:1143 in Account Settings or launch Proton Webmail directly from the sidebar.',
-    `To sync your Proton Mail inbox directly into Command Center:\n1. Open Proton Mail Bridge on Windows.\n2. Copy the Bridge password for your account.\n3. Open Email Hub -> Account Settings and paste the password into your Proton Mail slot (Host: 127.0.0.1, Port: 1143).`,
-    0,
-    0,
-    'Security'
   );
 
   // Seed Loughborough University & Quick Launch Bookmarks

@@ -1,23 +1,22 @@
 /**
- * Ground News Scraper (with Images, Source Counts & Left/Center/Right Bias Bars)
- * + BBC / Guardian / Sky News Visual RSS Engine
+ * BBC / Guardian / Sky News Visual RSS Engine
  * + Multi-City UK Weather (Loughborough & London) with Outfit Advice
  */
 
 const NEWS_SOURCES = {
   uk: [
-    { name: 'BBC UK', url: 'https://feeds.bbci.co.uk/news/uk/rss.xml', bias: { left: 18, center: 68, right: 14, label: 'Center · Public Broadcaster' } },
-    { name: 'Sky News UK', url: 'https://feeds.skynews.com/feeds/rss/uk.xml', bias: { left: 15, center: 60, right: 25, label: 'Center' } },
-    { name: 'The Guardian UK', url: 'https://www.theguardian.com/uk-news/rss', bias: { left: 65, center: 28, right: 7, label: 'Lean Left' } }
+    { name: 'BBC UK', url: 'https://feeds.bbci.co.uk/news/uk/rss.xml' },
+    { name: 'Sky News UK', url: 'https://feeds.skynews.com/feeds/rss/uk.xml' },
+    { name: 'The Guardian UK', url: 'https://www.theguardian.com/uk-news/rss' }
   ],
   world: [
-    { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', bias: { left: 18, center: 68, right: 14, label: 'Center' } },
-    { name: 'Sky World', url: 'https://feeds.skynews.com/feeds/rss/world.xml', bias: { left: 15, center: 60, right: 25, label: 'Center' } },
-    { name: 'The Guardian World', url: 'https://www.theguardian.com/world/rss', bias: { left: 65, center: 28, right: 7, label: 'Lean Left' } }
+    { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+    { name: 'Sky World', url: 'https://feeds.skynews.com/feeds/rss/world.xml' },
+    { name: 'The Guardian World', url: 'https://www.theguardian.com/world/rss' }
   ],
   tech: [
-    { name: 'BBC Tech', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml', bias: { left: 15, center: 72, right: 13, label: 'Center · Tech' } },
-    { name: 'The Guardian Tech', url: 'https://www.theguardian.com/uk/technology/rss', bias: { left: 55, center: 35, right: 10, label: 'Tech & Policy' } }
+    { name: 'BBC Tech', url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
+    { name: 'The Guardian Tech', url: 'https://www.theguardian.com/uk/technology/rss' }
   ]
 };
 
@@ -89,9 +88,6 @@ function parseRssItems(xmlText, sourceObj) {
         description,
         image,
         source: sourceObj.name,
-        sourceCount: 1,
-        bias: sourceObj.bias,
-        groundCompareUrl: `https://ground.news/search?q=${encodeURIComponent(title.split(' ').slice(0, 6).join(' '))}`,
         publishedAt: isNaN(pubDate.getTime()) ? new Date().toISOString() : pubDate.toISOString()
       });
     }
@@ -100,168 +96,43 @@ function parseRssItems(xmlText, sourceObj) {
   return items;
 }
 
-async function fetchGroundNewsDirect(subpath = '') {
-  const targetUrl = subpath ? `https://ground.news/${subpath}` : 'https://ground.news/';
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch(targetUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-      }
-    });
-    if (!res.ok) throw new Error(`Ground News HTTP ${res.status}`);
-    const html = await res.text();
-
-    const stories = [];
-    const seenSlugs = new Set();
-
-    // Match escaped eventSummary story clusters inside Ground News Next.js SSR stream
-    const regex = /\\"title\\":\\"([^\\"]+)\\",\\"description\\":\\"([^\\"]*)\\",\\"start\\":\\"([^\\"]+)\\",\\"sourceCount\\":(\d+),\\"sources\\":(\[[\s\S]{0,6000}?\]),\\"blindspot\\":([a-z0-9\\"{}:,_-]*?),\\"slug\\":\\"([^\\"]+)\\"[\s\S]{0,900}?\\"latestMedia\\":\{\\"url\\":\\"([^\\"]+)\\"/g;
-
-    let m;
-    while ((m = regex.exec(html)) !== null && stories.length < 16) {
-      const title = m[1];
-      const description = m[2];
-      const startIso = m[3];
-      const sourceCount = parseInt(m[4], 10) || 25;
-      const sourcesRaw = m[5] || '';
-      const slug = m[7];
-      const image = m[8];
-
-      if (seenSlugs.has(slug)) continue;
-      seenSlugs.add(slug);
-
-      // Compute Left / Center / Right bias split from sources block
-      const leftMatches = (sourcesRaw.match(/\\"(left|leanLeft)\\"/g) || []).length;
-      const centerMatches = (sourcesRaw.match(/\\"center\\"/g) || []).length;
-      const rightMatches = (sourcesRaw.match(/\\"(right|leanRight)\\"/g) || []).length;
-      const totalSample = leftMatches + centerMatches + rightMatches;
-
-      let leftPct = 36, centerPct = 34, rightPct = 30;
-      if (totalSample > 0) {
-        leftPct = Math.round((leftMatches / totalSample) * 100);
-        centerPct = Math.round((centerMatches / totalSample) * 100);
-        rightPct = Math.max(0, 100 - leftPct - centerPct);
-      } else {
-        // Deterministic balanced distribution fallback if sources array is empty in summary preview
-        const hash = slug.length;
-        leftPct = 28 + (hash % 22);
-        centerPct = 30 + ((hash * 3) % 20);
-        rightPct = Math.max(5, 100 - leftPct - centerPct);
-      }
-
-      let label = `${sourceCount} Sources`;
-      if (leftPct >= 55) label = `Left-Heavy (${leftPct}% L)`;
-      else if (rightPct >= 55) label = `Right-Heavy (${rightPct}% R)`;
-      else label = `Balanced (${sourceCount} Outlets)`;
-
-      stories.push({
-        title,
-        link: `https://ground.news/article/${slug}`,
-        description: description.slice(0, 200),
-        image,
-        source: 'Ground News',
-        sourceCount,
-        bias: {
-          left: leftPct,
-          center: centerPct,
-          right: rightPct,
-          label
-        },
-        groundCompareUrl: `https://ground.news/article/${slug}`,
-        publishedAt: startIso
-      });
-    }
-
-    // Fallback lighter regex if sources array exceeded 6000 chars for some mega-stories
-    if (stories.length < 8) {
-      const fallbackRegex = /\\"title\\":\\"([^\\"]+)\\",\\"description\\":\\"([^\\"]*)\\",\\"start\\":\\"([^\\"]+)\\",\\"sourceCount\\":(\d+)[\s\S]{0,2500}?\\"slug\\":\\"([^\\"]+)\\"[\s\S]{0,900}?\\"latestMedia\\":\{\\"url\\":\\"([^\\"]+)\\"/g;
-      let fm;
-      while ((fm = fallbackRegex.exec(html)) !== null && stories.length < 14) {
-        const slug = fm[5];
-        if (seenSlugs.has(slug)) continue;
-        seenSlugs.add(slug);
-        const sourceCount = parseInt(fm[4], 10) || 30;
-        const leftPct = 34 + (slug.length % 16);
-        const centerPct = 32;
-        const rightPct = 100 - leftPct - centerPct;
-
-        stories.push({
-          title: fm[1],
-          link: `https://ground.news/article/${slug}`,
-          description: fm[2].slice(0, 200),
-          image: fm[6],
-          source: 'Ground News',
-          sourceCount,
-          bias: { left: leftPct, center: centerPct, right: rightPct, label: `${sourceCount} Sources` },
-          groundCompareUrl: `https://ground.news/article/${slug}`,
-          publishedAt: fm[3]
-        });
-      }
-    }
-
-    return stories;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function fetchNewsByCategory(category = 'ground') {
-  const cached = newsCache.get(category);
+async function fetchNewsByCategory(category = 'uk') {
+  const key = NEWS_SOURCES[category] ? category : 'uk';
+  const cached = newsCache.get(key);
   if (cached && Date.now() - cached.fetchedAt < NEWS_TTL_MS) {
     return cached.items;
   }
 
-  let finalItems = [];
-
-  if (category === 'ground') {
-    finalItems = await fetchGroundNewsDirect('').catch(() => []);
-  } else if (category === 'compare') {
-    // Side-by-side mix of Ground News Multi-Source Clusters + BBC UK Official Feed
-    const [groundItems, bbcItems] = await Promise.all([
-      fetchGroundNewsDirect('').catch(() => []),
-      fetchNewsByCategory('uk').catch(() => [])
-    ]);
-    const maxLen = Math.max(groundItems.length, bbcItems.length);
-    for (let i = 0; i < maxLen && finalItems.length < 16; i++) {
-      if (groundItems[i]) finalItems.push(groundItems[i]);
-      if (bbcItems[i]) finalItems.push(bbcItems[i]);
-    }
-  } else {
-    const sources = NEWS_SOURCES[category] || NEWS_SOURCES.uk;
-    const results = await Promise.allSettled(
-      sources.map(async (src) => {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 8000);
-        try {
-          const res = await fetch(src.url, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'GabrieliusLifeHub/2.5' }
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const xml = await res.text();
-          return parseRssItems(xml, src);
-        } finally {
-          clearTimeout(timer);
-        }
-      })
-    );
-
-    const combined = [];
-    for (const r of results) {
-      if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-        combined.push(...r.value);
+  const sources = NEWS_SOURCES[key];
+  const results = await Promise.allSettled(
+    sources.map(async (src) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try {
+        const res = await fetch(src.url, {
+          signal: controller.signal,
+          headers: { 'User-Agent': 'GabrieliusCommandCenter/1.0' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const xml = await res.text();
+        return parseRssItems(xml, src);
+      } finally {
+        clearTimeout(timer);
       }
+    })
+  );
+
+  const combined = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+      combined.push(...r.value);
     }
-    combined.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-    finalItems = combined.slice(0, 16);
   }
+  combined.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+  const finalItems = combined.slice(0, 16);
 
   if (finalItems.length > 0) {
-    newsCache.set(category, { items: finalItems, fetchedAt: Date.now() });
+    newsCache.set(key, { items: finalItems, fetchedAt: Date.now() });
   }
   return finalItems;
 }
